@@ -78,13 +78,19 @@ Uses all 16 bits with zero waste.
 
 *TBD — to be filled in as opcodes are assigned. Table format:*
 
-| Mnemonic | Opcode | Format | Description |
+| Mnemonic | Opcode (5-bit) | Format | Description |
 |---|---|---|---|
-| ADD | TBD | R-type | Rd = Rs1 + Rs2 |
-| LOADI | TBD | I-type | Rd = immediate |
-| LOAD | TBD | Indirect-type | Rd = memory[Rs + offset] |
-| STORE | TBD | Indirect-type | memory[Rs + offset] = Rd |
-| ... | | | |
+| ADD | `00000` | R-type | Rd = Rs1 + Rs2 |
+| SUB | `00001` | R-type | Rd = Rs1 - Rs2 |
+| HALT | `00010` | R-type (degenerate - dest/src1/src2 fields unused) | Stop execution |
+| MOV | `00011` | R-type (degenerate - src2 field unused) | Rd = Rs1 |
+| LOADI | `01000` | I-type | Rd = immediate (signed, -128 to 127) |
+| ADDI | `01001` | I-type (destination doubles as source) | Rd = Rd + immediate |
+| LOAD | `10000` | Indirect-type | Rd = memory[Rs + offset] |
+| STORE | `10001` | Indirect-type | memory[Rs + offset] = Rd |
+| *(reserved)* | `00100`–`00111` | R-type range | Reserved for future R-type ops |
+| *(reserved)* | `01010`–`01111` | I-type range | Reserved for future I-type ops |
+| *(reserved)* | `10010`–`11111` | Indirect-type / branch range | Reserved for jump/branch instructions once flags are designed |
 
 ---
 
@@ -99,23 +105,30 @@ encoding depends on both the available opcode space and the flag design.*
 
 ## 7. Design Decisions Log
 
-This is a running log of decisions in the order that they were made, with the alternative considered and the constraint that forced the choice. (See inline reasoning in each section above — this log exists as a chronological cross-reference.)
+This is a running log of decisions in the order that they were made, with the alternative considered and the constraint that forced the choice. Relevant sections can be referred to fo more detailed reasoning. 
 
-1. **Fixed-length 16-bit instructions** over variable-length — simpler decode,
-   standard for a first custom ISA (Section 1)
-2. **8 general-purpose registers, 3-bit addressing** over 16 — bit budget
-   doesn't support 16 registers in a 3-operand R-type format (Section 2)
-3. **Three addressing modes (immediate, register-direct, register-indirect)**
-   over adding absolute/direct — direct addressing doesn't fit the bit budget
-   and is redundant given the other three modes (Section 4)
-4. **Multiple instruction formats selected by opcode (R-type/I-type/Indirect-type)**
-   over one uniform format — avoids wasting bits on unused fields, standard
-   practice in real ISAs (Section 3)
-5. **8-bit immediate field** — derived directly from remaining bits after
-   opcode + dest register, not copied from external precedent (Section 3)
-6. **5-bit signed offset added to indirect addressing** — turns unused bits
-   into a real capability, directly motivated by bubble sort's need to access
-   adjacent array elements without recomputing addresses (Section 3)
+1. **Fixed-length 16-bit instructions** used instead of variable-length: simpler to decode and more appropriate for first custom ISA. **(Section 1)**
+
+
+2. **8 general-purpose registers with 3 bit addressing** over 16: bit budget doesn't support 16 registers in a 3-operand R-type format. **(Section 2)**
+
+3. **Three addressing modes (immediate, register-direct, register-indirect)** and omitting absolute/direct: direct addressing doesn't fit the bit budget and is not required given the other three modes. **(Section 4)**
+
+4. **Multiple instruction formats selected by opcode (R-type/I-type/Indirect-type)** instead of one uniform format: avoids wasting bits on unused fields. **(Section 3)**
+
+5. **8-bit immediate field:** derived directly from remaining bits after opcode + destination register. **(Section 3)**
+
+6. **5-bit signed offset added to indirect addressing:** makes use of unused bits. Influenced by bubble sort's need to access adjacent array elements without recomputing addresses. **(Section 3)**
+
+7. **No dedicated MUL, no shift instructions (LSL/LSR/ASR/XSR):**  factorial's multiplication is implemented through repeated addition using ADD. Shift-and-add multiplication is a real hardware technique but adds unrequired opcode and implementation complexity. **(Section 5)**
+
+8. **No bitwise logic (AND/OR/XOR/NOT):** none of the test programs need bit manipulation, therefore not added. **(Section 5)**
+
+9. **No NOP:** not currently requirement (no pipeline/timing constraints in a pure emulator). Can be added if the project is extended toward hardware timing simulation. **(Section 5)**
+
+10. **HALT and MOV treated as degenerate R-type instructions** rather than introducing a fourth zero/one-operand format: keeps the decoder handling only three instruction shapes. **(Section 5)**
+
+11. **Opcodes grouped by format** (`000xx`=R-type, `010xx`=I-type, `10xxx`= Indirect-type/branch) rather than assigned sequentially, so the opcode's high bits alone can indicate instruction format before full decode. **(Section 5)**
 
 ---
 
